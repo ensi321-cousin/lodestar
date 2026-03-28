@@ -73,6 +73,10 @@ export const defaultSkipOpts: SkipOpts = {
     /^fulu\/light_client\/single_merkle_proof\/BeaconBlockBody.*/,
     /^.+\/light_client\/data_collection\/.*/,
     /^gloas\/ssz_static\/ForkChoiceNode.*$/,
+    // TODO gloas: proposer boost and ex-ante reorg tests require proposer boost implementation for gloas
+    // Tracked in https://github.com/ChainSafe/lodestar/issues/9098
+    /^gloas\/fork_choice\/on_block\/pyspec_tests\/proposer_boost.*/,
+    /^gloas\/fork_choice\/ex_ante\/.*/,
   ],
   skippedTests: [],
   skippedRunners: [],
