@@ -353,9 +353,13 @@ export class ProtoArray {
         continue;
       }
 
-      const currentBoost = proposerBoost && proposerBoost.root === node.blockRoot ? proposerBoost.score : 0;
+      // For Gloas blocks, only apply proposer boost to the PENDING variant to avoid double-counting.
+      // Both PENDING and EMPTY share the same blockRoot, but boost should only count once.
+      const isBoostEligible = !isGloasBlock(node) || node.payloadStatus === PayloadStatus.PENDING;
+      const currentBoost =
+        isBoostEligible && proposerBoost && proposerBoost.root === node.blockRoot ? proposerBoost.score : 0;
       const previousBoost =
-        this.previousProposerBoost && this.previousProposerBoost.root === node.blockRoot
+        isBoostEligible && this.previousProposerBoost && this.previousProposerBoost.root === node.blockRoot
           ? this.previousProposerBoost.score
           : 0;
 

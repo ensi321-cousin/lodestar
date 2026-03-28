@@ -574,6 +574,11 @@ export class BeaconStateView implements IBeaconStateView {
   }
 
   get isMergeTransitionComplete(): boolean {
+    // Gloas+ states don't have latestExecutionPayloadHeader (replaced by latestExecutionPayloadBid + latestBlockHash)
+    // but they are always post-merge since gloas is well after capella
+    if (this.config.getForkSeq(this.cachedState.slot) >= ForkSeq.gloas) {
+      return true;
+    }
     return isExecutionStateType(this.cachedState) && isMergeTransitionComplete(this.cachedState);
   }
 

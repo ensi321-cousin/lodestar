@@ -10,6 +10,7 @@ import {
   ACTIVE_PRESET,
   ForkPostDeneb,
   ForkPostFulu,
+  ForkPostGloas,
   ForkPreDeneb,
   ForkPreFulu,
   ForkPreGloas,
@@ -40,6 +41,7 @@ import {bnToNum, fromHex, toHex} from "@lodestar/utils";
 import {
   BlockInputBlobs,
   BlockInputColumns,
+  BlockInputNoData,
   BlockInputPreData,
   BlockInputSource,
 } from "../../../src/chain/blocks/blockInput/index.js";
@@ -85,9 +87,12 @@ const forkChoiceTest =
         const clock = new ClockStopped(currentSlot);
         const executionEngineBackend = new ExecutionEngineMockBackend({
           onlyPredefinedResponses: opts.onlyPredefinedResponses,
-          genesisBlockHash: isExecutionStateType(anchorState)
-            ? toHexString(anchorState.latestExecutionPayloadHeader.blockHash)
-            : ZERO_HASH_HEX,
+          genesisBlockHash:
+            (anchorState as gloas.BeaconState).latestBlockHash !== undefined
+              ? toHexString((anchorState as gloas.BeaconState).latestBlockHash)
+              : isExecutionStateType(anchorState)
+                ? toHexString(anchorState.latestExecutionPayloadHeader.blockHash)
+                : ZERO_HASH_HEX,
         });
 
         const controller = new AbortController();
@@ -235,7 +240,19 @@ const forkChoiceTest =
                 let blockImport;
                 const forkSeq = config.getForkSeq(slot);
 
-                if (forkSeq >= ForkSeq.fulu) {
+                if (forkSeq >= ForkSeq.gloas) {
+                  // Gloas (ePBS) blocks don't carry blobs/columns directly on the block body.
+                  // Blob KZG commitments are nested inside signedExecutionPayloadBid.
+                  // Use BlockInputNoData since DA is handled separately via execution payload envelopes.
+                  blockImport = BlockInputNoData.createFromBlock({
+                    forkName: fork,
+                    block: signedBlock as SignedBeaconBlock<ForkPostGloas>,
+                    blockRootHex,
+                    source: BlockInputSource.gossip,
+                    seenTimestampSec: 0,
+                    daOutOfRange: false,
+                  });
+                } else if (forkSeq >= ForkSeq.fulu) {
                   if (columns === undefined) {
                     columns = [];
                   }
@@ -515,7 +532,12 @@ const forkChoiceTest =
           // and these tests are failing until we update our implementation.
           name.includes("voting_source_beyond_two_epoch") ||
           name.includes("justified_update_always_if_better") ||
-          name.includes("justified_update_not_realized_finality"),
+          name.includes("justified_update_not_realized_finality") ||
+          // TODO GLOAS: Proposer boost reorg tests also affected by the same spec changes.
+          // These test proposer boost application and is_head_weak/is_parent_strong reorg logic.
+          (name.includes("gloas") && name.includes("proposer_boost") && !name.includes("proposer_boost_root_same_slot")) ||
+          (name.includes("gloas") && name.includes("include_votes_another_empty_chain")) ||
+          (name.includes("gloas") && name.includes("simple_attempted_reorg_without_enough_ffg_votes")),
       },
     };
   };

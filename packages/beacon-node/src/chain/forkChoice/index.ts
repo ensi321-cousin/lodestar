@@ -103,10 +103,16 @@ export function initializeForkChoiceFromFinalizedState(
   const isForkPostGloas = computeEpochAtSlot(state.slot) >= config.GLOAS_FORK_EPOCH;
 
   // Determine justified checkpoint payload status
-  const justifiedPayloadStatus = getCheckpointPayloadStatus(config, state, justifiedCheckpoint.epoch);
+  // For Gloas: protoArray always creates anchor with PENDING payload status.
+  // Store checkpoints must match to avoid NOT_FINALIZED_DESCENDANT and lookup errors.
+  const justifiedPayloadStatus = isForkPostGloas
+    ? PayloadStatus.PENDING
+    : getCheckpointPayloadStatus(config, state, justifiedCheckpoint.epoch);
 
   // Determine finalized checkpoint payload status
-  const finalizedPayloadStatus = getCheckpointPayloadStatus(config, state, finalizedCheckpoint.epoch);
+  const finalizedPayloadStatus = isForkPostGloas
+    ? PayloadStatus.PENDING
+    : getCheckpointPayloadStatus(config, state, finalizedCheckpoint.epoch);
 
   return new forkchoiceConstructor(
     config,
@@ -153,7 +159,10 @@ export function initializeForkChoiceFromFinalizedState(
           : {executionPayloadBlockHash: null, executionStatus: ExecutionStatus.PreMerge}),
 
         dataAvailabilityStatus: DataAvailabilityStatus.PreData,
-        payloadStatus: isForkPostGloas ? PayloadStatus.PENDING : PayloadStatus.FULL, // TODO GLOAS: Post-gloas how do we know if the checkpoint payload is FULL or EMPTY?
+        // For Gloas blocks, protoArray.onBlock always creates PENDING + EMPTY variants.
+        // getAncestor returns the PENDING variant (index 0), so the anchor's payloadStatus
+        // must be PENDING to match the finalized checkpoint's payloadStatus check.
+        payloadStatus: isForkPostGloas ? PayloadStatus.PENDING : PayloadStatus.FULL,
         parentBlockHash: isForkPostGloas ? toRootHex(state.latestBlockHash) : null,
       },
       currentSlot
